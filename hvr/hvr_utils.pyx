@@ -1,4 +1,4 @@
-from libc.math cimport erf, exp, expm1, log, log1p, pi, sqrt
+from libc.math cimport erf, exp, expm1, lgamma, log, log1p, pi, sqrt
 
 import numpy as np
 
@@ -59,27 +59,35 @@ cdef double norm_pdf(double x):
     """
     return logsqrt2pi - 0.5*(x**2)
 
+cdef double beta_pdf(double x, double a, double b):
+    """PDF for the beta distribution function in log-space."""
+    return (a - 1) * log(x) + (b - 1)*log(1-x) + lgamma(a+b) - lgamma(a) - lgamma(b)
+
 cpdef double norm_logl(double x, double m, double s):
     """Normal log-likelihood function."""
     return logsqrt2pi - 0.5*log(s) - 0.5*((x - m) / s)**2
 
-cpdef double truncnorm_pdf(double x, double a, double b, double mu=0.5, double sigma=0.2):
-    """Custom definition of the log of the truncated normal pdf."""
-    cdef double p, z, alpha, beta, eta;
-    beta = (b - mu) / sigma
-    alpha = (a - mu) / sigma
-    eta = (max(min(x,b),a) - mu) / sigma
-    z = logdiffexp(psi(beta), psi(alpha))
-    p = norm_pdf(eta) - log(sigma) - z
-    return p
 
-cpdef double emission_nvar(int c, double pi0, double alpha):
+cpdef double emission_nvar(int c, double lambda0=1.0, double alpha = 1.0):
     """Emission distribution for number of variants."""
-    pass
+    return -alpha*lambda0 + c * log(lambda0 * alpha)
 
-cpdef double emission_callrate(double[:] call_rates):
-    """Emission distribution for accounting for variation in call-rate."""
-    pass
+cpdef double emission_callrate(double[:] call_rates, double pi0=0.5, double a0, double b0, double a1, double b1):
+    """Emission distribution for accounting for variation in call-rate.
+
+    NOTE: If pi0 is
+    """
+    cdef int i,n;
+    cdef double logll;
+    n = call_rates.size
+    logll = 0.0
+    for i in range(n):
+        if pi0 == 0:
+            logll += log(1.0 - pi0) + beta_pdf(call_rates[i], a0, b0)
+        else:
+            logll += logaddexp(log(pi0) + beta_pdf(call_rates[i], a1, b1), log(1.0 - pi0) + beta_pdf(call_rates[i], a0, b0))
+
+    return logll
 
 
 def forward_algo(bafs, pos, mat_haps, pat_haps, states, karyotypes, double r=1e-8, double a=1e-2, double pi0=0.2, double std_dev=0.25):
