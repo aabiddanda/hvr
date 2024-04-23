@@ -82,15 +82,11 @@ cpdef double emission_callrate(double[:] call_rates, double pi0=0.5, double a0, 
     n = call_rates.size
     logll = 0.0
     for i in range(n):
-        if pi0 == 0:
-            logll += log(1.0 - pi0) + beta_pdf(call_rates[i], a0, b0)
-        else:
-            logll += logaddexp(log(pi0) + beta_pdf(call_rates[i], a1, b1), log(1.0 - pi0) + beta_pdf(call_rates[i], a0, b0))
-
+        logll += logaddexp(log(pi0) + beta_pdf(call_rates[i], a1, b1), log(1.0 - pi0) + beta_pdf(call_rates[i], a0, b0))
     return logll
 
 
-def forward_algo(cnts, call_rates, pos, double pi0=0.2, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
+def forward_algo(cnts, call_rates, pos, double pi0=0.2, double eps=1e-3, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Helper function for forward algorithm loop-optimization."""
     cdef int i,j,n,m;
     cdef float di;
@@ -99,7 +95,7 @@ def forward_algo(cnts, call_rates, pos, double pi0=0.2, double lambda0=1.0, doub
     alphas = np.zeros(shape=(m, n))
     alphas[:, 0] = log(1.0 / m)
     alphas[0,0] += emission_nvar(cnts[0], lambda0=lambda0, alpha=1.0)
-    alphas[0,0] += emission_callrate(call_rates[0], pi0=0.0, a0=a0, b0=b0, a1=a1, b1=b1)
+    alphas[0,0] += emission_callrate(call_rates[0], pi0=eps, a0=a0, b0=b0, a1=a1, b1=b1)
     alphas[1,0] += emission_nvar(cnts[0], lambda0=lambda0, alpha=alpha)
     alphas[1,0] += emission_callrate(call_rates[0], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
     scaler = np.zeros(n)
@@ -108,8 +104,8 @@ def forward_algo(cnts, call_rates, pos, double pi0=0.2, double lambda0=1.0, doub
     for i in range(1, n):
         di = pos[i] - pos[i-1]
         A_hat = [[-di, log1mexp(di)],[log1mexp(di), -di]]
-        cur_emission0 = emission_nvar(cnts[0], lambda0=lambda0, alpha=1.0) + emission_callrate(call_rates[0], pi0=0.0, a0=a0, b0=b0, a1=a1, b1=b1)
-        cur_emission1 = emission_nvar(cnts[0], lambda0=lambda0, alpha=alpha) + emission_callrate(call_rates[0], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
+        cur_emission0 = emission_nvar(cnts[i], lambda0=lambda0, alpha=1.0) + emission_callrate(call_rates[i], pi0=eps, a0=a0, b0=b0, a1=a1, b1=b1)
+        cur_emission1 = emission_nvar(cnts[i], lambda0=lambda0, alpha=alpha) + emission_callrate(call_rates[i], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
         alphas[0, i] = cur_emission0 + logsumexp(A_hat[:, 0] + alphas[:, (i - 1)])
         alphas[1, i] = cur_emission0 + logsumexp(A_hat[:, 1] + alphas[:, (i - 1)])
         scaler[i] = logsumexp(alphas[:, i])
@@ -170,33 +166,25 @@ def backward_algo(bafs, pos, mat_haps, pat_haps, states, karyotypes, double r=1e
         betas[:, i] -= scaler[i]
     return betas, scaler, states, None, sum(scaler)
 
-def viterbi_algo(bafs, pos, mat_haps, pat_haps, states, karyotypes, double r=1e-8, double a=1e-2, double pi0=0.2, double std_dev=0.25):
+def viterbi_algo(cnts, call_rates, pos, double pi0=0.2, double eps=1e-3, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Cython implementation of the Viterbi algorithm for MLE path estimation through states."""
     cdef int i,j,n,m;
     cdef float di;
     n = bafs.size
-    m = len(states)
+    m = 2
     deltas = np.zeros(shape=(m, n))
     deltas[:, 0] = log(1.0 / m)
     psi = np.zeros(shape=(m, n), dtype=int)
-    ks = [sum([s >= 0 for s in state]) for state in states]
-    K0,K1 = create_index_arrays(karyotypes)
     for i in range(1, n):
         di = pos[i] - pos[i-1]
-        A_hat = transition_kernel(K0, K1, d=di, r=r, a=a)
+        A_hat = [[-di, log1mexp(di)],[log1mexp(di), -di]]
         for j in range(m):
-            m_ij = mat_dosage(mat_haps[:, i], states[j])
-            p_ij = pat_dosage(pat_haps[:, i], states[j])
-            deltas[j,i] = np.max(deltas[:,i-1] + A_hat[:,j])
-            deltas[j,i] += emission_baf(
-                    bafs[i],
-                    m_ij,
-                    p_ij,
-                    pi0=pi0,
-                    std_dev=std_dev,
-                    k=ks[j],
-                )
-            psi[j, i] = np.argmax(deltas[:, i - 1] + A_hat[:, j]).astype(int)
+            deltas[0,i] = np.max(deltas[:,i-1] + A_hat[:,0])
+            deltas[0,i] += emission_nvar(cnts[i], lambda0=lambda0, alpha=1.0) + emission_callrate(call_rates[i], pi0=eps, a0=a0, b0=b0, a1=a1, b1=b1)
+            psi[0, i] = np.argmax(deltas[:, i - 1] + A_hat[:, 0]).astype(int)
+            deltas[1,i] = np.max(deltas[:,i-1] + A_hat[:,1])
+            deltas[1,i] += emission_nvar(cnts[i], lambda0=lambda0, alpha=alpha) + emission_callrate(call_rates[i], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
+            psi[1, i] = np.argmax(deltas[:, i - 1] + A_hat[:, 1]).astype(int)
     path = np.zeros(n, dtype=int)
     path[-1] = np.argmax(deltas[:, -1]).astype(int)
     for i in range(n - 2, -1, -1):
