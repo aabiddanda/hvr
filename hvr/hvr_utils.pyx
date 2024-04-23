@@ -75,7 +75,7 @@ cpdef double emission_nvar(int c, double lambda0=1.0, double alpha = 1.0):
 cpdef double emission_callrate(double[:] call_rates, double pi0=0.5, double a0, double b0, double a1, double b1):
     """Emission distribution for accounting for variation in call-rate.
 
-    NOTE: If pi0 is
+    NOTE: If pi0 is 0, then we must be in the first category
     """
     cdef int i,n;
     cdef double logll;
@@ -90,52 +90,31 @@ cpdef double emission_callrate(double[:] call_rates, double pi0=0.5, double a0, 
     return logll
 
 
-def forward_algo(bafs, pos, mat_haps, pat_haps, states, karyotypes, double r=1e-8, double a=1e-2, double pi0=0.2, double std_dev=0.25):
+def forward_algo(cnts, call_rates, pos, double pi0=0.2, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Helper function for forward algorithm loop-optimization."""
     cdef int i,j,n,m;
     cdef float di;
-    n = bafs.size
-    m = len(states)
-    ks = [sum([s >= 0 for s in state]) for state in states]
-    K0,K1 = create_index_arrays(karyotypes)
+    n = cnts.size
+    m = 2
     alphas = np.zeros(shape=(m, n))
     alphas[:, 0] = log(1.0 / m)
-    for j in range(m):
-        m_ij = mat_dosage(mat_haps[:, 0], states[j])
-        p_ij = pat_dosage(pat_haps[:, 0], states[j])
-        # This is in log-space ...
-        cur_emission = emission_baf(
-                bafs[0],
-                m_ij,
-                p_ij,
-                pi0=pi0,
-                std_dev=std_dev,
-                k=ks[j],
-            )
-        alphas[j,0] += cur_emission
+    alphas[0,0] += emission_nvar(cnts[0], lambda0=lambda0, alpha=1.0)
+    alphas[0,0] += emission_callrate(call_rates[0], pi0=0.0, a0=a0, b0=b0, a1=a1, b1=b1)
+    alphas[1,0] += emission_nvar(cnts[0], lambda0=lambda0, alpha=alpha)
+    alphas[1,0] += emission_callrate(call_rates[0], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
     scaler = np.zeros(n)
     scaler[0] = logsumexp(alphas[:, 0])
     alphas[:, 0] -= scaler[0]
     for i in range(1, n):
         di = pos[i] - pos[i-1]
-        # This should get the distance dependent transition models ...
-        A_hat = transition_kernel(K0, K1, d=di, r=r, a=a)
-        for j in range(m):
-            m_ij = mat_dosage(mat_haps[:, i], states[j])
-            p_ij = pat_dosage(pat_haps[:, i], states[j])
-            # This is in log-space ...
-            cur_emission = emission_baf(
-                    bafs[i],
-                    m_ij,
-                    p_ij,
-                    pi0=pi0,
-                    std_dev=std_dev,
-                    k=ks[j],
-                )
-            alphas[j, i] = cur_emission + logsumexp(A_hat[:, j] + alphas[:, (i - 1)])
+        A_hat = [[-di, log1mexp(di)],[log1mexp(di), -di]]
+        cur_emission0 = emission_nvar(cnts[0], lambda0=lambda0, alpha=1.0) + emission_callrate(call_rates[0], pi0=0.0, a0=a0, b0=b0, a1=a1, b1=b1)
+        cur_emission1 = emission_nvar(cnts[0], lambda0=lambda0, alpha=alpha) + emission_callrate(call_rates[0], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
+        alphas[0, i] = cur_emission0 + logsumexp(A_hat[:, 0] + alphas[:, (i - 1)])
+        alphas[1, i] = cur_emission0 + logsumexp(A_hat[:, 1] + alphas[:, (i - 1)])
         scaler[i] = logsumexp(alphas[:, i])
         alphas[:, i] -= scaler[i]
-    return alphas, scaler, states, None, sum(scaler)
+    return alphas, scaler, sum(scaler)
 
 def backward_algo(bafs, pos, mat_haps, pat_haps, states, karyotypes, double r=1e-8, double a=1e-2, double pi0=0.2, double std_dev=0.25):
     """Helper function for backward algorithm loop-optimization."""
