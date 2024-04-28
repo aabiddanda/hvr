@@ -72,7 +72,7 @@ cpdef double emission_nvar(int c, double lambda0=1.0, double alpha = 1.0):
     """Emission distribution for number of variants."""
     return -alpha*lambda0 + c * log(lambda0 * alpha)
 
-cpdef double emission_callrate(double[:] call_rates, double pi0=0.5, double a0, double b0, double a1, double b1):
+cpdef double emission_callrate(double[:] call_rates, double pi0=0.5, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Emission distribution for accounting for variation in call-rate.
 
     NOTE: If pi0 is 0, then we must be in the first category
@@ -112,14 +112,12 @@ def forward_algo(cnts, call_rates, pos, double pi0=0.2, double eps=1e-3, double 
         alphas[:, i] -= scaler[i]
     return alphas, scaler, sum(scaler)
 
-def backward_algo(bafs, pos, mat_haps, pat_haps, states, karyotypes, double r=1e-8, double a=1e-2, double pi0=0.2, double std_dev=0.25):
+def backward_algo(cnts, call_rates, pos, double pi0=0.2, double eps=1e-3, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Helper function for backward algorithm loop-optimization."""
     cdef int i,j,n,m;
     cdef float di;
-    n = bafs.size
-    m = len(states)
-    ks = [sum([s >= 0 for s in state]) for state in states]
-    K0,K1 = create_index_arrays(karyotypes)
+    n = cnts.size
+    m = 2
     betas = np.zeros(shape=(m, n))
     betas[:,-1] = log(1)
     scaler = np.zeros(n)
@@ -128,49 +126,34 @@ def backward_algo(bafs, pos, mat_haps, pat_haps, states, karyotypes, double r=1e
     for i in range(n - 2, -1, -1):
         # The matrices are element-wise multiplied so add in log-space ...
         di = pos[i+1] - pos[i]
-        A_hat = transition_kernel(K0, K1, d=di, r=r, a=a)
+        A_hat = [[-di, log1mexp(di)],[log1mexp(di), -di]]
         # Calculate the full set of emissions
         cur_emissions = np.zeros(m)
-        for j in range(m):
-            m_ij = mat_dosage(mat_haps[:, i+1], states[j])
-            p_ij = pat_dosage(pat_haps[:, i+1], states[j])
-            # This is in log-space as well ...
-            cur_emissions[j] = emission_baf(
-                    bafs[i + 1],
-                    m_ij,
-                    p_ij,
-                    pi0=pi0,
-                    std_dev=std_dev,
-                    k=ks[j],
-                )
-        for j in range(m):
-            # This should be the correct version here ...
-            betas[j,i] = logsumexp(A_hat[:, j] + cur_emissions + betas[:, (i + 1)])
+        cur_emissions[0] = emission_nvar(cnts[i+1], lambda0=lambda0, alpha=1.0) + emission_callrate(call_rates[i+1], pi0=eps, a0=a0, b0=b0, a1=a1, b1=b1)
+        cur_emissions[1] = emission_nvar(cnts[i+1], lambda0=lambda0, alpha=alpha) + emission_callrate(call_rates[i+1], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
+
+        # This should be the correct version here ...
+        betas[0,i] = logsumexp(A_hat[:, 0] + cur_emissions + betas[:, (i + 1)])
+        betas[1,i] = logsumexp(A_hat[:, 1] + cur_emissions + betas[:, (i + 1)])
+
         if i == 0:
-            for j in range(m):
-                m_ij = mat_dosage(mat_haps[:, i], states[j])
-                p_ij = pat_dosage(pat_haps[:, i], states[j])
-                # This is in log-space as well ...
-                cur_emission = emission_baf(
-                        bafs[i],
-                        m_ij,
-                        p_ij,
-                        pi0=pi0,
-                        std_dev=std_dev,
-                        k=ks[j],
-                    )
-                # Add in the initialization + first emission?
-                betas[j,i] += log(1/m) + cur_emission
+            cur_emissions = np.zeros(m)
+            cur_emissions[0] = emission_nvar(cnts[i], lambda0=lambda0, alpha=1.0) + emission_callrate(call_rates[i], pi0=eps, a0=a0, b0=b0, a1=a1, b1=b1)
+            cur_emissions[1] = emission_nvar(cnts[i], lambda0=lambda0, alpha=alpha) + emission_callrate(call_rates[i], pi0=pi0, a0=a0, b0=b0, a1=a1, b1=b1)
+
+            # Add in the initialization + first emission?
+            betas[0,i] += log(1/m) + cur_emissions[0]
+            betas[1,i] += log(1/m) + cur_emissions[1]
         # Do the rescaling here ...
         scaler[i] = logsumexp(betas[:, i])
         betas[:, i] -= scaler[i]
-    return betas, scaler, states, None, sum(scaler)
+    return betas, scaler, sum(scaler)
 
 def viterbi_algo(cnts, call_rates, pos, double pi0=0.2, double eps=1e-3, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Cython implementation of the Viterbi algorithm for MLE path estimation through states."""
     cdef int i,j,n,m;
     cdef float di;
-    n = bafs.size
+    n = cnts.size
     m = 2
     deltas = np.zeros(shape=(m, n))
     deltas[:, 0] = log(1.0 / m)
@@ -190,4 +173,4 @@ def viterbi_algo(cnts, call_rates, pos, double pi0=0.2, double eps=1e-3, double 
     for i in range(n - 2, -1, -1):
         path[i] = psi[path[i + 1], i]
     path[0] = psi[path[1], 1]
-    return path, states, deltas, psi
+    return path, deltas, psi

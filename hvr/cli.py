@@ -6,7 +6,7 @@ import click
 import numpy as np
 import pandas as pd
 
-from hvr import *
+from hvr import HVR
 
 # Setup the logging configuration for the CLI
 logging.basicConfig(
