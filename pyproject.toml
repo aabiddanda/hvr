@@ -27,7 +27,7 @@ Homepage = "https://github.com/aabiddanda/hvr"
 tests = ["pytest", "pytest-cov", "hypothesis", "flake8", "sphinx"]
 
 [project.scripts]
-karyohmm-cli = "hvr.cli:main"
+hvr-cli = "hvr.cli:main"
 
 [tool.setuptools]
 zip-safe = false
