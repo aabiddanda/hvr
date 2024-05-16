@@ -1,4 +1,4 @@
-"""CLI for karyohmm."""
+"""CLI for HVR detection."""
 import logging
 import sys
 
@@ -60,6 +60,14 @@ logging.basicConfig(
     help="Gzip output files",
 )
 @click.option(
+    "--threads",
+    "-t",
+    required=False,
+    type=int,
+    default=2,
+    help="Number of threads for reading in VCF file",
+)
+@click.option(
     "--out",
     "-o",
     required=True,
@@ -68,15 +76,20 @@ logging.basicConfig(
     help="Output file prefix.",
 )
 def main(
-    input,
+    vcf,
     viterbi,
     algo="Powell",
     recomb_map=1e-8,
     gzip=True,
+    threads=2,
     out="hvr",
 ):
     """HVR CLI."""
-    logging.info(f"Starting to read input data {input}.")
-    logging.info(f"Finished reading in {input}.")
+
+    logging.info(f"Starting to read input data {vcf}.")
+    hvr = HVR(vcf_file=vcf)
+    hvr.generate_window_data(window_size=100, threads=threads, strict_gt=True)
+    hvr.interpolate_rec_dist(rec_rate=recomb_map)
+    logging.info(f"Finished reading in {vcf}.")
     logging.info(f"Finished hvr analysis!")
     pass

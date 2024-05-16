@@ -8,6 +8,7 @@ from hvr_utils import backward_algo, forward_algo, viterbi_algo
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize
 from scipy.special import logsumexp as logsumexp_sp
+from scipy.stats import *
 from tqdm import tqdm
 
 
@@ -16,7 +17,7 @@ class HVR:
 
     def __init__(self, vcf_file):
         """Initialize the HVR class."""
-        self.vcf_file = None
+        self.vcf_file = vcf_file
         self.chrom_pos = None
         self.chrom_cnts = None
         self.chrom_call_rate = None
@@ -25,7 +26,7 @@ class HVR:
         """Create the emission / position vectors at intervals of 100 basepairs."""
         assert window_size > 0
         if window_size <= 100:
-            warnings.warn("Warning: window-size for estimation may be potentially too ")
+            warnings.warn("Warning: window-size for estimation is <= 100 bp!")
         vcf = VCF(self.vcf_file, **kwargs)
         chroms = vcf.seqnames
         chrom_cnt_dict = {}
@@ -33,31 +34,25 @@ class HVR:
         chrom_pos_dict = {}
         for c in chroms:
             pos = []
-            cnts = []
-            call_rates = []
-            cur_call_rate = []
-            cnt = 0
-            start = 0.0
-            end = window_size
-            for i, v in tqdm(enumerate(vcf(c))):
-                if i == 0:
-                    start = v.POS
-                    end = v.POS + window_size
-                if v.POS > end:
-                    pos.append((start, end))
-                    start = end
-                    end = end + window_size
-                    cnts.append(cnt)
-                    cnt = 1
-                    call_rates.append(cur_call_rate)
-                    cur_call_rate = [v.call_rate]
-                else:
-                    cnt += 1
-                    cur_call_rate.append(v.call_rate)
-            assert len(cnts) == len(call_rates)
-            chrom_pos_dict[c] = pos
-            chrom_cnt_dict[c] = cnts
-            chrom_call_rate_dict[c] = call_rates
+            call_rate = []
+            for v in tqdm(vcf(c)):
+                pos.append(v.POS)
+                call_rate.append(v.call_rate)
+            if len(pos) > 0:
+                # Create a binned representation of this ...
+                bins = np.arange(np.min(pos), np.max(pos), window_size)
+                res = binned_statistic(pos, np.ones(len(pos)), statistic="count", bins=bins)
+                # Set the counts here ...
+                cnts = res.statistic
+                # NOTE: this is the mean-call-rate in that window ...
+                res = binned_statistic(pos, call_rate, statistic=np.nanmean, bins=bins)
+                call_rates = res.statistic
+                pos = (bins[:-1] + bins[1:]) / 2
+                assert pos.size == call_rates.size
+                assert pos.size == cnts.size
+                chrom_pos_dict[c] = pos
+                chrom_cnt_dict[c] = cnts
+                chrom_call_rate_dict[c] = call_rates
         # Actually set dictionaries as the object here ...
         self.chrom_cnts = chrom_cnt_dict
         self.chrom_pos = chrom_pos_dict
@@ -77,7 +72,15 @@ class HVR:
             )
 
     def est_beta_params(self):
-        """Estimate the null beta parameters."""
+        """Estimate the null beta parameters across all the call-rates.
+
+        NOTE: this is just using moment-matching for the beta distribution ...
+        """
+        xs = np.hstack([self.chrom_call_rate[i] for i in self.chrom_call_rate])
+        mu = np.nanmean(xs)
+        sigma2 = np.nanvar(xs)
+        a = -(sigma2 + mu^2 - mu) / sigma2
+        b =
         pass
 
     def est_lambda0(self):
