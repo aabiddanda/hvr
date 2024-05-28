@@ -38,7 +38,7 @@ cpdef double logmeanexp(double a, double b):
     c = exp(a - m) + exp(b - m)
     return m + log(c) - 2.0
 
-cdef double log1mexp(double a):
+cpdef double log1mexp(double a):
     """Log of 1 - e^-x."""
     if a < 0.693:
         return log(-expm1(-a))
@@ -67,7 +67,7 @@ cpdef double norm_logl(double x, double m, double s):
     """Normal log-likelihood function."""
     return logsqrt2pi - 0.5*log(s) - 0.5*((x - m) / s)**2
 
-cpdef double emission_nvar(int c, double lambda0=1.0, double alpha = 1.0):
+cpdef double emission_nvar(long c, double lambda0=1.0, double alpha = 1.0):
     """Emission distribution for number of variants."""
     return -alpha*lambda0 + c * log(alpha*lambda0)
 
@@ -78,7 +78,7 @@ cpdef double emission_callrate(double call_rate = 1.0, double a=1.0, double b=1.
     else:
         return beta_pdf(call_rate, a, b)
 
-def forward_algo(int[:] cnts, double[:] call_rates, double[:] pos, double pi0=0.2, double eps=1e-3, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
+def forward_algo(long[:] cnts, double[:] call_rates, double[:] pos, double pi0=0.2, double eps=1e-3, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Helper function for forward algorithm loop-optimization."""
     cdef int i,j,n,m;
     cdef float di;
@@ -106,7 +106,7 @@ def forward_algo(int[:] cnts, double[:] call_rates, double[:] pos, double pi0=0.
         alphas[:, i] -= scaler[i]
     return alphas, scaler, sum(scaler)
 
-def backward_algo(int[:] cnts, double[:] call_rates, double[:] pos, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
+def backward_algo(long[:] cnts, double[:] call_rates, double[:] pos, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Helper function for backward algorithm loop-optimization."""
     cdef int i,j,n,m;
     cdef float di;
@@ -145,7 +145,7 @@ def backward_algo(int[:] cnts, double[:] call_rates, double[:] pos, double lambd
         betas[:, i] -= scaler[i]
     return betas, scaler, sum(scaler)
 
-def viterbi_algo(int[:] cnts, double[:] call_rates, double[:] pos, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
+def viterbi_algo(long[:] cnts, double[:] call_rates, double[:] pos, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Cython implementation of the Viterbi algorithm for MLE path estimation through states."""
     cdef int i,j,n,m;
     cdef float di;

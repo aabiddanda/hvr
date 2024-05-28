@@ -43,17 +43,21 @@ class HVR:
                 pos = np.array(pos)
                 bins = np.arange(np.min(pos), np.max(pos), window_size)
                 call_rate = np.array(call_rate)
-                call_rates_test = [[] for _ in range(bins.size)]
-                cnts = [0 for _ in range(bins.size)]
+                call_rates_test = np.zeros(bins.size)
+                cnts = np.zeros(bins.size, dtype=int)
                 idx = np.digitize(pos, bins=bins)
                 for i in tqdm(range(bins.size)):
-                    call_rates_test[i] = call_rate[idx == i]
-                    cnts[i] = pos[idx == i].size
+                    call_rates_test[i] = (
+                        np.mean(call_rate[idx == i])
+                        if call_rate[idx == i].size > 0
+                        else 0.0
+                    )
+                    cnts[i] = int(pos[idx == i].size)
                 call_rates = call_rates_test
                 bins = np.insert(bins, 0, 0)
                 pos = (bins[:-1] + bins[1:]) / 2
-                assert pos.size == len(call_rates)
-                assert pos.size == len(cnts)
+                assert pos.size == call_rates.size
+                assert pos.size == cnts.size
                 chrom_pos_dict[c] = pos
                 chrom_cnt_dict[c] = cnts
                 chrom_call_rate_dict[c] = call_rates
