@@ -5,6 +5,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy.stats import beta, poisson
 
+from hvr import HVR
+
 
 @given(
     c=st.integers(min_value=0, max_value=1),
@@ -61,3 +63,25 @@ def test_loglik_similarity(r):
     _, _, fwd_loglik = forward_algo(cnts, callrates, pos)
     _, _, bwd_loglik = backward_algo(cnts, callrates, pos)
     assert np.isclose(fwd_loglik, bwd_loglik, atol=1e-5)
+
+
+@given(r=st.integers(min_value=5, max_value=100))
+def test_forward_backward(r):
+    """Test that the log-likelihood makes sense."""
+    np.random.seed(r)
+    cnts = poisson.rvs(mu=1.0, size=r)
+    callrates = beta.rvs(a=1.0, b=1.0, size=r)
+    pos = np.linspace(0, 1e6, r)
+    cur_hvr = HVR("test.vcf.gz")
+    # Creating the HVR object ...
+    cur_hvr.chrom_cnts = {"I": cnts}
+    cur_hvr.chrom_call_rate = {"I": callrates}
+    cur_hvr.chrom_pos = {"I": pos}
+    cur_hvr.est_lambda0()
+    cur_hvr.est_beta_params()
+    gamma_dict = cur_hvr.forward_backward(
+        lambda0=cur_hvr.lambda0, alpha=2.0, a0=cur_hvr.a0, b0=cur_hvr.b0, a1=3, b1=3
+    )
+    gammas = gamma_dict["I"]
+    gammas_raw = np.exp(gammas)
+    assert np.all(np.isclose(np.sum(gammas_raw, axis=0), 1.0, atol=1e-4))

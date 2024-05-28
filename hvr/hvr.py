@@ -81,7 +81,7 @@ class HVR:
     def est_beta_params(self):
         """Estimate the null beta parameters across all the call-rates.
 
-        NOTE: this is just using moment-matching for the beta distribution ...
+        NOTE: this is just using moment-matching for the beta distribution.
         """
         xs = np.hstack([self.chrom_call_rate[i] for i in self.chrom_call_rate])
         mu = np.nanmean(xs)
@@ -99,6 +99,8 @@ class HVR:
     def optimize_params(self, lambda0=1.0, algo="L-BFGS-B"):
         """Optimize the parameters."""
         assert self.lambda0 is not None
+        assert self.a0 is not None
+        assert self.b0 is not None
         assert algo in ["L-BFGS-B", "Powell"]
         opt_res = minimize(
             lambda x: -self.loglik(
@@ -119,9 +121,7 @@ class HVR:
         )
         return opt_res.x
 
-    def loglik(
-        self, pi0=0.2, eps=1e-3, lambda0=1.0, alpha=2.0, a0=1.0, b0=1.0, a1=0.5, b1=0.5
-    ):
+    def loglik(self, lambda0=1.0, alpha=2.0, a0=1.0, b0=1.0, a1=0.5, b1=0.5):
         """Compute the log-likelihood of the data under the current model parameters."""
         logll = 0.0
         for k in self.chrom_pos:
@@ -129,8 +129,6 @@ class HVR:
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
                 pos=self.chrom_pos[k],
-                pi0=pi0,
-                eps=eps,
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
@@ -141,9 +139,7 @@ class HVR:
             logll += ll
         return logll
 
-    def viterbi_algorithm(
-        self, pi0=0.2, eps=1e-3, lambda0=1.0, alpha=2.0, a0=1.0, b0=1.0, a1=0.5, b1=0.5
-    ):
+    def viterbi_algorithm(self, alpha=2.0, a1=0.5, b1=0.5):
         """Estimate the maximum-likelihood path through the HVR states.
 
         Returns a per-chromosome dictionary of the viterbi path under a specific parameterization.
@@ -154,21 +150,17 @@ class HVR:
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
                 pos=self.chrom_pos[k],
-                pi0=pi0,
-                eps=eps,
-                lambda0=lambda0,
+                lambda0=self.lambda0,
                 alpha=alpha,
-                a0=a0,
-                b0=b0,
+                a0=self.a0,
+                b0=self.b0,
                 a1=a1,
                 b1=b1,
             )
             path_dict[k] = path
         return path_dict
 
-    def forward_backward(
-        self, pi0=0.2, eps=1e-3, lambda0=1.0, alpha=2.0, a0=1.0, b0=1.0, a1=0.5, b1=0.5
-    ):
+    def forward_backward(self, lambda0=1.0, alpha=2.0, a0=1.0, b0=1.0, a1=0.5, b1=0.5):
         """Run the forward-backward algorithm to estimate the posterior probability of HVR states.
 
         Returns a per-chromosome dictionary of the
@@ -179,8 +171,6 @@ class HVR:
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
                 pos=self.chrom_pos[k],
-                pi0=pi0,
-                eps=eps,
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
@@ -192,8 +182,6 @@ class HVR:
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
                 pos=self.chrom_pos[k],
-                pi0=pi0,
-                eps=eps,
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
