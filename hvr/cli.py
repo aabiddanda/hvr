@@ -34,6 +34,14 @@ logging.basicConfig(
     help="Apply the Viterbi algorithm for determining hyper-variable regions.",
 )
 @click.option(
+    "--chrom",
+    required=False,
+    default=None,
+    show_default=True,
+    type=list,
+    help="Apply the algorithm only on a specific chromosome.",
+)
+@click.option(
     "--algo",
     required=False,
     default="Powell",
@@ -78,6 +86,7 @@ logging.basicConfig(
 def main(
     vcf,
     viterbi,
+    chrom=None,
     algo="Powell",
     recomb_map=1e-8,
     gzip=True,
@@ -85,11 +94,12 @@ def main(
     out="hvr",
 ):
     """HVR CLI."""
-
     logging.info(f"Starting to read input data {vcf}.")
     hvr = HVR(vcf_file=vcf)
-    hvr.generate_window_data(window_size=100, threads=threads, strict_gt=True)
+    hvr.generate_window_data(
+        window_size=100, threads=threads, chroms=chrom, strict_gt=True
+    )
     hvr.interpolate_rec_dist(rec_rate=recomb_map)
     logging.info(f"Finished reading in {vcf}.")
-    logging.info(f"Finished hvr analysis!")
+    logging.info("Finished hvr analysis!")
     pass

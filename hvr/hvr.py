@@ -8,7 +8,6 @@ from hvr_utils import backward_algo, forward_algo, viterbi_algo
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize
 from scipy.special import logsumexp as logsumexp_sp
-from scipy.stats import *
 from tqdm import tqdm
 
 
@@ -22,13 +21,14 @@ class HVR:
         self.chrom_cnts = None
         self.chrom_call_rate = None
 
-    def generate_window_data(self, window_size=100, **kwargs):
+    def generate_window_data(self, window_size=100, chroms=None, **kwargs):
         """Create the emission / position vectors at intervals of 100 basepairs."""
         assert window_size > 0
         if window_size <= 100:
             warnings.warn("Warning: window-size for estimation is <= 100 bp!")
         vcf = VCF(self.vcf_file, **kwargs)
-        chroms = vcf.seqnames
+        if chroms is None:
+            chroms = vcf.seqnames
         chrom_cnt_dict = {}
         chrom_call_rate_dict = {}
         chrom_pos_dict = {}
@@ -40,16 +40,20 @@ class HVR:
                 call_rate.append(v.call_rate)
             if len(pos) > 0:
                 # Create a binned representation of this ...
+                pos = np.array(pos)
                 bins = np.arange(np.min(pos), np.max(pos), window_size)
-                res = binned_statistic(pos, np.ones(len(pos)), statistic="count", bins=bins)
-                # Set the counts here ...
-                cnts = res.statistic
-                # NOTE: this is the mean-call-rate in that window ...
-                res = binned_statistic(pos, call_rate, statistic=np.nanmean, bins=bins)
-                call_rates = res.statistic
+                call_rate = np.array(call_rate)
+                call_rates_test = [[] for _ in range(bins.size)]
+                cnts = [0 for _ in range(bins.size)]
+                idx = np.digitize(pos, bins=bins)
+                for i in tqdm(range(bins.size)):
+                    call_rates_test[i] = call_rate[idx == i]
+                    cnts[i] = pos[idx == i].size
+                call_rates = call_rates_test
+                bins = np.insert(bins, 0, 0)
                 pos = (bins[:-1] + bins[1:]) / 2
-                assert pos.size == call_rates.size
-                assert pos.size == cnts.size
+                assert pos.size == len(call_rates)
+                assert pos.size == len(cnts)
                 chrom_pos_dict[c] = pos
                 chrom_cnt_dict[c] = cnts
                 chrom_call_rate_dict[c] = call_rates
@@ -64,8 +68,7 @@ class HVR:
         assert (rec_rate > 0) and (rec_rate < 1)
         if recmap is None:
             for k in self.chrom_pos:
-                cur_pos = self.chrom_pos[k]
-                self.chrom_pos[k] = [(s + e / 2) * rec_rate for (s, e) in cur_pos]
+                self.chrom_pos[k] = self.chrom_pos[k] * rec_rate
         else:
             raise NotImplementedError(
                 "Interpolation via a recombination map is not currently supported!"
@@ -79,13 +82,14 @@ class HVR:
         xs = np.hstack([self.chrom_call_rate[i] for i in self.chrom_call_rate])
         mu = np.nanmean(xs)
         sigma2 = np.nanvar(xs)
-        a = -(sigma2 + mu^2 - mu) / sigma2
-        b =
-        pass
+        a = -(sigma2 + mu**2 - mu) / sigma2
+        b = ((sigma2 + mu**2 - mu) * (mu - 1)) / sigma2
+        return a, b
 
     def est_lambda0(self):
         """Estimate the rate of variants."""
-        pass
+        xs = np.hstack([self.chrom_call_rate[i] for i in self.chrom_call_rate])
+        self.lambda0 = np.nanmean(xs)
 
     def optimize_params(self, lambda0=1.0, algo="L-BFGS-B"):
         """Optimize the parameters."""

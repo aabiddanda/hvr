@@ -70,12 +70,12 @@ cpdef double norm_logl(double x, double m, double s):
 
 cpdef double emission_nvar(int c, double lambda0=1.0, double alpha = 1.0):
     """Emission distribution for number of variants."""
-    return -alpha*lambda0 + c * log(lambda0 * alpha)
+    return -alpha*lambda0 + c * log(alpha*lambda0)
 
 cpdef double emission_callrate(double[:] call_rates, double pi0=0.5, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Emission distribution for accounting for variation in call-rate.
 
-    NOTE: If pi0 is 0, then we must be in the first category
+    NOTE: If pi0 is 0, then we must be in the first category ...
     """
     cdef int i,n;
     cdef double logll;
