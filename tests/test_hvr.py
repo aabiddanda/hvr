@@ -1,6 +1,6 @@
 """Test suite for HVR calculations."""
 import numpy as np
-from hvr_utils import emission_callrate, emission_nvar
+from hvr_utils import backward_algo, emission_callrate, emission_nvar, forward_algo
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from scipy.stats import beta, poisson
@@ -27,3 +27,37 @@ def test_emission_callrate(r, a, b):
     true_emiss = emission_callrate(r, a=a, b=b)
     beta_emiss = beta.logpdf(r, a, b)
     assert np.isclose(true_emiss, beta_emiss, atol=1e-06)
+
+
+@given(r=st.integers(min_value=5, max_value=100))
+def test_forward_algo(r):
+    """Test that the forward log-likelihood makes sense."""
+    np.random.seed(r)
+    cnts = poisson.rvs(mu=1.0, size=r)
+    callrates = beta.rvs(a=1.0, b=1.0, size=r)
+    pos = np.linspace(0, 1e6, r)
+    _, _, loglik = forward_algo(cnts, callrates, pos)
+    assert loglik < 0
+
+
+@given(r=st.integers(min_value=5, max_value=100))
+def test_backward_algo(r):
+    """Test that the backward log-likelihood makes sense."""
+    np.random.seed(r)
+    cnts = poisson.rvs(mu=1.0, size=r)
+    callrates = beta.rvs(a=1.0, b=1.0, size=r)
+    pos = np.linspace(0, 1e6, r)
+    _, _, loglik = backward_algo(cnts, callrates, pos)
+    assert loglik < 0
+
+
+@given(r=st.integers(min_value=5, max_value=100))
+def test_loglik_similarity(r):
+    """Test that the log-likelihood makes sense."""
+    np.random.seed(r)
+    cnts = poisson.rvs(mu=1.0, size=r)
+    callrates = beta.rvs(a=1.0, b=1.0, size=r)
+    pos = np.linspace(0, 1e6, r)
+    _, _, fwd_loglik = forward_algo(cnts, callrates, pos)
+    _, _, bwd_loglik = backward_algo(cnts, callrates, pos)
+    assert np.isclose(fwd_loglik, bwd_loglik, atol=1e-5)

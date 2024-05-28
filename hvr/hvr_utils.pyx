@@ -78,7 +78,7 @@ cpdef double emission_callrate(double call_rate = 1.0, double a=1.0, double b=1.
     else:
         return beta_pdf(call_rate, a, b)
 
-def forward_algo(long[:] cnts, double[:] call_rates, double[:] pos, double pi0=0.2, double eps=1e-3, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
+def forward_algo(long[:] cnts, double[:] call_rates, double[:] pos, double lambda0=1.0, double alpha=2.0, double a0=1.0, double b0=1.0, double a1=0.5, double b1=0.5):
     """Helper function for forward algorithm loop-optimization."""
     cdef int i,j,n,m;
     cdef float di;

@@ -88,7 +88,8 @@ class HVR:
         sigma2 = np.nanvar(xs)
         a = -(sigma2 + mu**2 - mu) / sigma2
         b = ((sigma2 + mu**2 - mu) * (mu - 1)) / sigma2
-        return a, b
+        self.a0 = a
+        self.b0 = b
 
     def est_lambda0(self):
         """Estimate the rate of variants."""
@@ -101,22 +102,17 @@ class HVR:
         assert algo in ["L-BFGS-B", "Powell"]
         opt_res = minimize(
             lambda x: -self.loglik(
-                pi0=x[0],
-                eps=1e-3,
                 lambda0=self.lambda0,
                 alpha=x[1],
-                a0=x[2],
-                b0=x[3],
-                a1=x[4],
-                b1=x[5],
+                a0=self.a0,
+                b0=self.b0,
+                a1=x[2],
+                b1=x[3],
             ),
             x0=[],
             method=algo,
             bounds=[
-                (1e-3, 0.8),
-                (1.0, 100.0),
-                (1e-2, 1e2),
-                (1e-2, 1e2),
+                (2.0, 100.0),
                 (1e-2, 1e2),
                 (1e-2, 1e2),
             ],
