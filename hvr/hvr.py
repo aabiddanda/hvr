@@ -50,7 +50,7 @@ class HVR:
                     call_rates_test[i] = (
                         np.mean(call_rate[idx == i])
                         if call_rate[idx == i].size > 0
-                        else 0.0
+                        else 1.0
                     )
                     cnts[i] = int(pos[idx == i].size)
                 call_rates = call_rates_test
@@ -84,7 +84,7 @@ class HVR:
         NOTE: this is just using moment-matching for the beta distribution.
         """
         xs = np.hstack([self.chrom_call_rate[i] for i in self.chrom_call_rate])
-        mu = np.nanmean(xs)
+        mu = np.nanmean(xs[(xs < 1.0) & (xs > 0.0)])
         sigma2 = np.nanvar(xs)
         a = -(sigma2 + mu**2 - mu) / sigma2
         b = ((sigma2 + mu**2 - mu) * (mu - 1)) / sigma2
@@ -96,7 +96,7 @@ class HVR:
         xs = np.hstack([self.chrom_call_rate[i] for i in self.chrom_call_rate])
         self.lambda0 = np.nanmean(xs)
 
-    def optimize_params(self, lambda0=1.0, algo="L-BFGS-B"):
+    def optimize_params(self, algo="L-BFGS-B"):
         """Optimize the parameters."""
         assert self.lambda0 is not None
         assert self.a0 is not None
@@ -105,19 +105,20 @@ class HVR:
         opt_res = minimize(
             lambda x: -self.loglik(
                 lambda0=self.lambda0,
-                alpha=x[1],
+                alpha=x[0],
                 a0=self.a0,
                 b0=self.b0,
-                a1=x[2],
-                b1=x[3],
+                a1=x[1],
+                b1=x[1],
             ),
-            x0=[],
+            x0=[5.0, 2.0],
             method=algo,
             bounds=[
                 (2.0, 100.0),
-                (1e-2, 1e2),
-                (1e-2, 1e2),
+                (1e-2, 1e1),
             ],
+            tol=1e-4,
+            options={"disp": True, "ftol": 1e-4, "xtol": 1e-4},
         )
         return opt_res.x
 

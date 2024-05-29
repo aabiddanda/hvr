@@ -55,7 +55,7 @@ def test_backward_algo(r):
 
 @given(r=st.integers(min_value=5, max_value=100))
 def test_loglik_similarity(r):
-    """Test that the log-likelihood makes sense."""
+    """Test that the log-likelihood is equal between forward and backward settings."""
     np.random.seed(r)
     cnts = poisson.rvs(mu=1.0, size=r)
     callrates = beta.rvs(a=1.0, b=1.0, size=r)
@@ -67,7 +67,7 @@ def test_loglik_similarity(r):
 
 @given(r=st.integers(min_value=5, max_value=100))
 def test_forward_backward(r):
-    """Test that the log-likelihood makes sense."""
+    """Test that the forward-backward algorithm is running properly."""
     np.random.seed(r)
     cnts = poisson.rvs(mu=1.0, size=r)
     callrates = beta.rvs(a=1.0, b=1.0, size=r)
