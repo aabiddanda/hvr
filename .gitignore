@@ -4,6 +4,7 @@ nohup.out
 *.so
 *.html
 *.egg-info/
+*.npz
 build/
 *.coverage*
 .hypothesis/
