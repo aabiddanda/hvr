@@ -1,5 +1,7 @@
 """CLI for HVR detection."""
+import gzip as gz
 import logging
+import pickle
 import sys
 
 import click
@@ -89,7 +91,7 @@ def main(
     algo="Powell",
     recomb_map=1e-4,
     threads=2,
-    out="hvr.npz",
+    out="hvr.results.gz",
 ):
     """HVR CLI."""
     logging.info(f"Starting to read input data {vcf}.")
@@ -126,5 +128,6 @@ def main(
         "a1": a1,
         "b1": a1,
     }
-    np.savez_compressed(out, **res_dict)
+    with gz.open(out, "wb") as out_fp:
+        pickle.dump(res_dict, out_fp)
     logging.info("Finished hvr analysis!")
