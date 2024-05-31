@@ -5,6 +5,6 @@ Modules exported are:
 * MetaHMM: module for whole chromosome aneuploidy determination via HMMs.
 """
 
-__version__ = "0.0.1a"
+__version__ = "0.0.1b"
 
 from .hvr import HVR

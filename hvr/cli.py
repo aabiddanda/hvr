@@ -35,21 +35,12 @@ logging.basicConfig(
     help="Window size for segregating site estimation.",
 )
 @click.option(
-    "--viterbi",
-    is_flag=True,
-    required=False,
-    default=False,
-    show_default=True,
-    type=bool,
-    help="Apply the Viterbi algorithm for determining hyper-variable regions.",
-)
-@click.option(
     "--chrom",
     required=False,
-    default=None,
+    default="I",
     show_default=True,
-    type=list,
-    help="Apply the algorithm only on a specific chromosome.",
+    type=str,
+    help="Apply the HMM on this specific chromosome.",
 )
 @click.option(
     "--algo",
@@ -85,9 +76,8 @@ logging.basicConfig(
 )
 def main(
     vcf,
-    viterbi,
     window_size=100,
-    chrom=None,
+    chrom="I",
     algo="Powell",
     recomb_map=1e-4,
     threads=2,
@@ -97,7 +87,7 @@ def main(
     logging.info(f"Starting to read input data {vcf}.")
     hvr = HVR(vcf_file=vcf)
     hvr.generate_window_data(
-        window_size=window_size, threads=threads, chroms=chrom, strict_gt=True
+        window_size=window_size, threads=threads, chroms=[chrom], strict_gt=True
     )
     hvr.interpolate_rec_dist(rec_rate=recomb_map)
     logging.info(f"Finished reading in {vcf}.")
