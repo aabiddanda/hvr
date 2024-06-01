@@ -72,7 +72,7 @@ class HVR:
         assert (rec_rate > 0) and (rec_rate < 1)
         if recmap is None:
             for k in self.chrom_pos:
-                self.chrom_pos[k] = self.chrom_pos[k] * rec_rate
+                self.chrom_pos_scaled[k] = self.chrom_pos[k] * rec_rate
         else:
             raise NotImplementedError(
                 "Interpolation via a recombination map is not currently supported!"
@@ -129,7 +129,7 @@ class HVR:
             _, _, ll = forward_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos[k],
+                pos=self.chrom_pos_scaled[k],
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
@@ -150,7 +150,7 @@ class HVR:
             path, _, _ = viterbi_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos[k],
+                pos=self.chrom_pos_scaled[k],
                 lambda0=self.lambda0,
                 alpha=alpha,
                 a0=self.a0,
@@ -171,7 +171,7 @@ class HVR:
             alphas, _, _ = forward_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos[k],
+                pos=self.chrom_pos_scaled[k],
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
@@ -182,7 +182,7 @@ class HVR:
             betas, _, _ = backward_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos[k],
+                pos=self.chrom_pos_scaled[k],
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
