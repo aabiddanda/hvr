@@ -72,6 +72,7 @@ class HVR:
         assert self.chrom_pos is not None
         assert (rec_rate > 0) and (rec_rate < 1)
         if recmap is None:
+            self.chrom_pos_scaled = {}
             for k in self.chrom_pos:
                 self.chrom_pos_scaled[k] = self.chrom_pos[k] * rec_rate
         else:
