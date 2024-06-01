@@ -20,6 +20,7 @@ class HVR:
         self.chrom_pos = None
         self.chrom_cnts = None
         self.chrom_call_rate = None
+        self.chrom_pos_scaled = None
 
     def generate_window_data(self, window_size=100, chroms=None, **kwargs):
         """Create the emission / position vectors at intervals of 100 basepairs."""
@@ -129,7 +130,9 @@ class HVR:
             _, _, ll = forward_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos_scaled[k],
+                pos=self.chrom_pos_scaled[k]
+                if self.chrom_pos_scaled is not None
+                else self.chrom_pos[k],
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
@@ -150,7 +153,9 @@ class HVR:
             path, _, _ = viterbi_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos_scaled[k],
+                pos=self.chrom_pos_scaled[k]
+                if self.chrom_pos_scaled is not None
+                else self.chrom_pos[k],
                 lambda0=self.lambda0,
                 alpha=alpha,
                 a0=self.a0,
@@ -171,7 +176,9 @@ class HVR:
             alphas, _, _ = forward_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos_scaled[k],
+                pos=self.chrom_pos_scaled[k]
+                if self.chrom_pos_scaled is not None
+                else self.chrom_pos[k],
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
@@ -182,7 +189,9 @@ class HVR:
             betas, _, _ = backward_algo(
                 cnts=self.chrom_cnts[k],
                 call_rates=self.chrom_call_rate[k],
-                pos=self.chrom_pos_scaled[k],
+                pos=self.chrom_pos_scaled[k]
+                if self.chrom_pos_scaled is not None
+                else self.chrom_pos[k],
                 lambda0=lambda0,
                 alpha=alpha,
                 a0=a0,
